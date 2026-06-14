@@ -64,7 +64,9 @@ fun DashboardScreen(
     onNavigateToCommunity: () -> Unit,
     onNavigateToCoaching: () -> Unit,
     onNavigateToIntentions: () -> Unit,
-    onNavigateToGrounding: () -> Unit = {}
+    onNavigateToFocus: () -> Unit,
+    onNavigateToGrounding: () -> Unit = {},
+    onNavigateToRoutine: () -> Unit = {}
 ) {
     val logs by viewModel.allLogs.collectAsStateWithLifecycle()
     val isRemindersEnabled by settingsViewModel.isRemindersEnabled.collectAsStateWithLifecycle()
@@ -278,6 +280,81 @@ fun DashboardScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                // SECTION 0: Morning Routine Wizard
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp)
+                            .clickable { onNavigateToRoutine() }
+                            .testTag("morning_routine_launcher"),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF11381A)),
+                        border = BorderStroke(1.dp, Color(0xFF1D4E2A))
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(140.dp)
+                                    .background(
+                                        Brush.radialGradient(
+                                            colors = listOf(Color(0xFFFFB300).copy(alpha = 0.15f), Color.Transparent)
+                                        )
+                                    )
+                            )
+                            
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(20.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFFFFB300).copy(alpha = 0.15f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "DAILY HABIT TUNING",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color(0xFFFFB300),
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    Text(
+                                        text = "Start Morning Routine",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = Color.White
+                                    )
+
+                                    Text(
+                                        text = "Mood Check-in, Box Breathing & Intention setting sequentially.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF9EA3A0)
+                                    )
+                                }
+
+                                Text(
+                                    text = "☀️",
+                                    fontSize = 44.sp,
+                                    modifier = Modifier.padding(end = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
                 // SECTION 1: Daily Mood Card (Large Bento Card)
                 item {
                     BentoDailyMoodCard(
@@ -850,6 +927,81 @@ fun DashboardScreen(
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFFF57F17)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // SECTION 1.8: Immersive Deep Focus Hub Launcher Card (Bento Layout)
+                item {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(130.dp)
+                            .clickable { onNavigateToFocus() }
+                            .testTag("quick_action_focus_hub"),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B201D)),
+                        border = BorderStroke(1.dp, Color(0xFF232A26))
+                    ) {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(140.dp)
+                                    .background(
+                                        Brush.radialGradient(
+                                            colors = listOf(Color(0xFF64FFDA).copy(alpha = 0.12f), Color.Transparent)
+                                        )
+                                    )
+                            )
+                            
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(20.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(Color(0xFF64FFDA).copy(alpha = 0.15f))
+                                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "POMODORO & AUDIO",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = Color(0xFF64FFDA),
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(2.dp))
+
+                                    Text(
+                                        text = "Deep Focus Hub",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = Color.White
+                                    )
+
+                                    Text(
+                                        text = "Merge ambient soundscapes with flow state countdowns",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF9EA3A0)
+                                    )
+                                }
+
+                                Text(
+                                    text = "🪐",
+                                    fontSize = 44.sp,
+                                    modifier = Modifier.padding(end = 4.dp)
                                 )
                             }
                         }

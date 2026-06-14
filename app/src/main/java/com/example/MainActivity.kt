@@ -26,6 +26,7 @@ import com.example.ui.LibraryViewModel
 import com.example.ui.CommunityViewModel
 import com.example.ui.CoachingViewModel
 import com.example.ui.DailyIntentionViewModel
+import com.example.ui.RoutineViewModel
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.screens.MoodTrackerScreen
 import com.example.ui.screens.BreathingScreen
@@ -40,6 +41,8 @@ import com.example.ui.screens.CommunityScreen
 import com.example.ui.screens.CoachingScreen
 import com.example.ui.screens.DailyIntentionsScreen
 import com.example.ui.screens.GroundingScreen
+import com.example.ui.screens.FocusScreen
+import com.example.ui.screens.RoutineScreen
 import com.example.ui.theme.MyApplicationTheme
 
 class MainActivity : ComponentActivity() {
@@ -74,6 +77,7 @@ fun MindfulAppNavigation(modifier: Modifier = Modifier) {
     val communityViewModel: CommunityViewModel = viewModel(factory = CommunityViewModel.Factory)
     val coachingViewModel: CoachingViewModel = viewModel(factory = CoachingViewModel.Factory)
     val dailyIntentionViewModel: DailyIntentionViewModel = viewModel(factory = DailyIntentionViewModel.Factory)
+    val routineViewModel: RoutineViewModel = viewModel(factory = RoutineViewModel.Factory)
 
     val currentUser = try {
         FirebaseAuth.getInstance().currentUser
@@ -112,7 +116,23 @@ fun MindfulAppNavigation(modifier: Modifier = Modifier) {
                 onNavigateToCommunity = { navController.navigate("community") },
                 onNavigateToCoaching = { navController.navigate("coaching") },
                 onNavigateToIntentions = { navController.navigate("intentions") },
-                onNavigateToGrounding = { navController.navigate("grounding") }
+                onNavigateToFocus = { navController.navigate("focus") },
+                onNavigateToGrounding = { navController.navigate("grounding") },
+                onNavigateToRoutine = { navController.navigate("routine") }
+            )
+        }
+
+        composable("routine") {
+            RoutineScreen(
+                viewModel = routineViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onComplete = { navController.popBackStack() }
+            )
+        }
+
+        composable("focus") {
+            FocusScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         

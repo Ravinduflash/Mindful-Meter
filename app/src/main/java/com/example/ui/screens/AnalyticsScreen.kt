@@ -32,6 +32,9 @@ import com.example.ui.AiInsightUiState
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.MoodLog
 import com.example.ui.MoodViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.ui.FocusViewModel
+import androidx.compose.material.icons.filled.Timer
 import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -46,9 +49,11 @@ import com.example.data.SleepRecordDto
 @Composable
 fun AnalyticsScreen(
     viewModel: MoodViewModel,
+    focusViewModel: FocusViewModel = viewModel(factory = FocusViewModel.Factory),
     onNavigateBack: () -> Unit
 ) {
     val logs by viewModel.allLogs.collectAsStateWithLifecycle()
+    val totalFocusMins by focusViewModel.totalFocusMinutes.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     val healthConnectManager = remember { HealthConnectManager(context) }
@@ -281,6 +286,67 @@ fun AnalyticsScreen(
                                     )
                                 )
                             }
+                        }
+                    }
+                }
+            }
+
+            // Deep Focus Analytics Stat Card
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("analytics_focus_stats_card"),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, BentoCardBorder)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFEDE7F6)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Timer,
+                                contentDescription = "Deep Focus Hours",
+                                tint = Color(0xFF673AB7),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Deep Focus Hub Analytics",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = BentoTextDark
+                            )
+                            Text(
+                                text = "Total completed Pomodoro blocks",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = BentoTextMuted
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                text = "$totalFocusMins",
+                                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black),
+                                color = Color(0xFF673AB7)
+                            )
+                            Text(
+                                text = "Minutes",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = BentoTextMuted
+                            )
                         }
                     }
                 }
