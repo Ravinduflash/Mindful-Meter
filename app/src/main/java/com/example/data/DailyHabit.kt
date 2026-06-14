@@ -8,6 +8,6 @@ data class DailyHabit(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
     val isCompleted: Boolean = false,
-    val dateStr: String,
+    val dateStr: String, // e.g., "yyyy-MM-dd"
     val timestamp: Long = System.currentTimeMillis()
 )

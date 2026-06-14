@@ -5,9 +5,11 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [DailyHabit::class], version = 2, exportSchema = false)
+@Database(entities = [MoodLog::class, JournalEntry::class, DailyIntention::class, DailyHabit::class], version = 4, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
-
+    abstract fun moodDao(): MoodDao
+    abstract fun journalDao(): JournalDao
+    abstract fun dailyIntentionDao(): DailyIntentionDao
     abstract fun dailyHabitDao(): DailyHabitDao
 
     companion object {
@@ -19,7 +21,7 @@ abstract class AppDatabase : RoomDatabase() {
                 Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "mindful_app_database"
+                    "mindful_meter_db"
                 )
                 .fallbackToDestructiveMigration()
                 .build()
