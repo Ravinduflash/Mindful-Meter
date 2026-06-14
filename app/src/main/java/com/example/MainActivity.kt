@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.WaterHydrationManager
 import com.example.ui.components.WaterHydrationTrackerCard
+import com.example.ui.components.DailyHabitChecklistCard
 import com.example.ui.components.WaterRainBorderOverlay
 import com.example.ui.theme.MindfulTheme
 import kotlinx.coroutines.delay
@@ -74,7 +75,7 @@ class MainActivity : ComponentActivity() {
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = "Mindfulness Hydrator",
+                            text = "Mindful Meter",
                             style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.onBackground
                         )
@@ -88,6 +89,9 @@ class MainActivity : ComponentActivity() {
 
                         // Embed our newly constructed, interactive Water Hydration Tracker Card
                         WaterHydrationTrackerCard()
+
+                        // Embed our interactive Daily Habits Checklist Card
+                        DailyHabitChecklistCard()
 
                         Spacer(modifier = Modifier.height(32.dp))
 
