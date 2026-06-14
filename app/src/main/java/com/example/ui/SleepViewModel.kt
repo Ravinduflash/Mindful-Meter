@@ -2,6 +2,8 @@ package com.example.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.MindfulApplication
+import com.example.media.MediaSessionConnection
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +20,8 @@ data class Soundscape(
 
 class SleepViewModel : ViewModel() {
 
+    private val mediaSessionConnection = MediaSessionConnection.getInstance(MindfulApplication.instance)
+
     private val _soundscapes = MutableStateFlow(
         listOf(
             Soundscape("rain", "Gentle Rain", "Soothing soft downpour on cottage leaves", "rain"),
@@ -28,8 +32,7 @@ class SleepViewModel : ViewModel() {
     )
     val soundscapes: StateFlow<List<Soundscape>> = _soundscapes.asStateFlow()
 
-    private val _playingId = MutableStateFlow<String?>(null)
-    val playingId: StateFlow<String?> = _playingId.asStateFlow()
+    val playingId: StateFlow<String?> = mediaSessionConnection.currentMediaId
 
     private val _timerOption = MutableStateFlow<String>("Off") // "15m", "30m", "1h", "Off"
     val timerOption: StateFlow<String> = _timerOption.asStateFlow()
@@ -39,13 +42,22 @@ class SleepViewModel : ViewModel() {
 
     private var timerJob: Job? = null
 
+    private fun getSoundUrl(id: String): String {
+        return when (id) {
+            "rain" -> "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+            "waves" -> "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+            "white_noise" -> "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+            "crackle" -> "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+            else -> "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+        }
+    }
+
     fun togglePlaying(id: String) {
-        if (_playingId.value == id) {
-            _playingId.value = null
-            // Pause timer countdown if nothing is playing
+        if (playingId.value == id) {
+            mediaSessionConnection.stop()
             timerJob?.cancel()
         } else {
-            _playingId.value = id
+            mediaSessionConnection.play(getSoundUrl(id), id)
             // Re-trigger countdown timer if it has time left
             if (_secondsRemaining.value > 0) {
                 startTimerCountdown()
@@ -66,7 +78,7 @@ class SleepViewModel : ViewModel() {
 
         _secondsRemaining.value = seconds
 
-        if (seconds > 0 && _playingId.value != null) {
+        if (seconds > 0 && playingId.value != null) {
             startTimerCountdown()
         }
     }
@@ -78,7 +90,7 @@ class SleepViewModel : ViewModel() {
                 delay(1000)
                 _secondsRemaining.value -= 1
                 if (_secondsRemaining.value == 0) {
-                    _playingId.value = null
+                    mediaSessionConnection.stop()
                     _timerOption.value = "Off"
                     break
                 }
@@ -87,7 +99,7 @@ class SleepViewModel : ViewModel() {
     }
 
     fun stopPlayback() {
-        _playingId.value = null
+        mediaSessionConnection.stop()
         _timerOption.value = "Off"
         _secondsRemaining.value = 0
         timerJob?.cancel()

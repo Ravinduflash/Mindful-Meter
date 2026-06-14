@@ -1,8 +1,11 @@
 package com.example.data
 
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
 
 data class Coach(
     val id: String,
@@ -31,7 +34,25 @@ interface CoachingRepository {
 }
 
 class OfflineCoachingRepository : CoachingRepository {
-    private val _coaches = listOf(
+    private val firestore: FirebaseFirestore? by lazy {
+        try {
+            FirebaseFirestore.getInstance()
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            null
+        }
+    }
+    
+    private val auth: FirebaseAuth? by lazy {
+        try {
+            FirebaseAuth.getInstance()
+        } catch (t: Throwable) {
+            t.printStackTrace()
+            null
+        }
+    }
+
+    private val staticCoaches = listOf(
         Coach(
             id = "c_1",
             name = "Dr. Aris Thorne",
@@ -74,7 +95,7 @@ class OfflineCoachingRepository : CoachingRepository {
         )
     )
 
-    private val _benefits = listOf(
+    private val staticBenefits = listOf(
         PremiumBenefit(
             id = "b_1",
             title = "1-on-1 Coaching Access",
@@ -101,19 +122,140 @@ class OfflineCoachingRepository : CoachingRepository {
         )
     )
 
-    private val _isSubscribed = MutableStateFlow(false)
+    private val localIsPremium = MutableStateFlow(false)
 
-    override fun getFeaturedCoaches(): Flow<List<Coach>> = MutableStateFlow(_coaches)
+    init {
+        try {
+            val db = firestore
+            if (db != null) {
+                db.collection("coaches").limit(1).get().addOnSuccessListener { snapshot ->
+                    if (snapshot == null || snapshot.isEmpty) {
+                        for (coach in staticCoaches) {
+                            db.collection("coaches").document(coach.id).set(coach)
+                        }
+                    }
+                }
+                db.collection("benefits").limit(1).get().addOnSuccessListener { snapshot ->
+                    if (snapshot == null || snapshot.isEmpty) {
+                        for (benefit in staticBenefits) {
+                            db.collection("benefits").document(benefit.id).set(benefit)
+                        }
+                    }
+                }
+            }
+        } catch (e: Throwable) {
+            e.printStackTrace()
+        }
+    }
 
-    override fun getPremiumBenefits(): Flow<List<PremiumBenefit>> = MutableStateFlow(_benefits)
+    override fun getFeaturedCoaches(): Flow<List<Coach>> {
+        val db = firestore ?: return kotlinx.coroutines.flow.flowOf(staticCoaches)
+        return callbackFlow {
+            val registration = db.collection("coaches")
+                .addSnapshotListener { snapshot, error ->
+                    if (snapshot != null) {
+                        val coachesList = snapshot.documents.mapNotNull { doc ->
+                            try {
+                                val id = doc.id
+                                val name = doc.getString("name") ?: ""
+                                val title = doc.getString("title") ?: ""
+                                val specialty = doc.getString("specialty") ?: ""
+                                val rating = doc.getDouble("rating")?.toFloat() ?: 4.5f
+                                val experienceYears = doc.getLong("experienceYears")?.toInt() ?: 5
+                                val avatarColorHex = doc.getString("avatarColorHex") ?: "DEE9FF"
+                                val availabilityToday = doc.getString("availabilityToday") ?: "Available"
+                                Coach(id, name, title, specialty, rating, experienceYears, avatarColorHex, availabilityToday)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        if (coachesList.isNotEmpty()) {
+                            trySend(coachesList)
+                        } else {
+                            trySend(staticCoaches)
+                        }
+                    } else {
+                        trySend(staticCoaches)
+                    }
+                }
+            awaitClose { registration.remove() }
+        }
+    }
 
-    override fun isPremiumSubscribed(): Flow<Boolean> = _isSubscribed.asStateFlow()
+    override fun getPremiumBenefits(): Flow<List<PremiumBenefit>> {
+        val db = firestore ?: return kotlinx.coroutines.flow.flowOf(staticBenefits)
+        return callbackFlow {
+            val registration = db.collection("benefits")
+                .addSnapshotListener { snapshot, error ->
+                    if (snapshot != null) {
+                        val benefitsList = snapshot.documents.mapNotNull { doc ->
+                            try {
+                                val id = doc.id
+                                val title = doc.getString("title") ?: ""
+                                val description = doc.getString("description") ?: ""
+                                val iconName = doc.getString("iconName") ?: ""
+                                PremiumBenefit(id, title, description, iconName)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        if (benefitsList.isNotEmpty()) {
+                            trySend(benefitsList)
+                        } else {
+                            trySend(staticBenefits)
+                        }
+                    } else {
+                        trySend(staticBenefits)
+                    }
+                }
+            awaitClose { registration.remove() }
+        }
+    }
+
+    override fun isPremiumSubscribed(): Flow<Boolean> {
+        val db = firestore ?: return localIsPremium
+        val currentUser = auth?.currentUser ?: return localIsPremium
+        return callbackFlow {
+            val registration = db.collection("users").document(currentUser.uid)
+                .addSnapshotListener { snapshot, error ->
+                    if (snapshot != null && snapshot.exists()) {
+                        val isSubscribed = snapshot.getBoolean("isPremiumSubscribed") ?: false
+                        trySend(isSubscribed)
+                    } else {
+                        trySend(false)
+                    }
+                }
+            awaitClose { registration.remove() }
+        }
+    }
 
     override suspend fun subscribeToPremium() {
-        _isSubscribed.value = true
+        val db = firestore
+        if (db == null) {
+            localIsPremium.value = true
+            return
+        }
+        val currentUser = auth?.currentUser ?: return
+        try {
+            db.collection("users").document(currentUser.uid)
+                .set(mapOf("isPremiumSubscribed" to true))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override suspend fun unsubscribeFromPremium() {
-        _isSubscribed.value = false
+        val db = firestore
+        if (db == null) {
+            localIsPremium.value = false
+            return
+        }
+        val currentUser = auth?.currentUser ?: return
+        try {
+            db.collection("users").document(currentUser.uid)
+                .set(mapOf("isPremiumSubscribed" to false))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

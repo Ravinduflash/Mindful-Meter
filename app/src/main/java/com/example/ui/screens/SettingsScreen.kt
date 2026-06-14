@@ -1,9 +1,11 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
@@ -30,7 +32,8 @@ import com.example.ui.theme.*
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onSignOut: () -> Unit
 ) {
     val isRemindersEnabled by viewModel.isRemindersEnabled.collectAsStateWithLifecycle()
     val isWellnessSyncEnabled by viewModel.isWellnessSyncEnabled.collectAsStateWithLifecycle()
@@ -280,6 +283,57 @@ fun SettingsScreen(
                         value = "1.1 (Phase 1 MVP Release)",
                         icon = Icons.Default.Info
                     )
+                }
+            }
+
+            // Sign Out Card
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        onSignOut()
+                    }
+                    .testTag("settings_signout_button"),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFFCDD2)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFFFFCDD2)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Sign Out Icon",
+                            tint = Color(0xFFC62828)
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Sign Out & Lock",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = Color(0xFFC62828)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Sign out of your live cloud session securely.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFFC62828).copy(alpha = 0.8f),
+                            lineHeight = 16.sp
+                        )
+                    }
                 }
             }
 

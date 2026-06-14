@@ -1,70 +1,40 @@
 package com.example.ui
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.example.MindfulApplication
+import com.example.media.MediaSessionConnection
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 class MeditationViewModel : ViewModel() {
 
-    private val _isPlaying = MutableStateFlow(false)
-    val isPlaying: StateFlow<Boolean> = _isPlaying
+    private val mediaSessionConnection = MediaSessionConnection.getInstance(MindfulApplication.instance)
 
-    private val _progress = MutableStateFlow(0f)
-    val progress: StateFlow<Float> = _progress
-
-    private var playbackJob: Job? = null
+    val isPlaying: StateFlow<Boolean> = mediaSessionConnection.isPlaying
+    val progress: StateFlow<Float> = mediaSessionConnection.progress
 
     fun togglePlayPause() {
-        if (_isPlaying.value) {
-            pause()
+        if (isPlaying.value) {
+            mediaSessionConnection.pause()
         } else {
-            play()
+            // Play Zenith Meditation stream
+            mediaSessionConnection.play(
+                "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3",
+                "meditation_zenith"
+            )
         }
-    }
-
-    private fun play() {
-        _isPlaying.value = true
-        playbackJob = viewModelScope.launch {
-            while (isActive && _isPlaying.value) {
-                delay(100)
-                val currentProgress = _progress.value
-                if (currentProgress >= 1f) {
-                    _progress.value = 0f
-                } else {
-                    _progress.value = (currentProgress + 0.005f).coerceAtMost(1f)
-                    if (_progress.value >= 1f) {
-                        _isPlaying.value = false
-                    }
-                }
-            }
-        }
-    }
-
-    fun pause() {
-        _isPlaying.value = false
-        playbackJob?.cancel()
-        playbackJob = null
     }
 
     fun setProgress(value: Float) {
-        _progress.value = value.coerceIn(0f, 1f)
+        mediaSessionConnection.seekToProgress(value)
     }
 
     fun rewind() {
-        _progress.value = (_progress.value - 0.1f).coerceAtLeast(0f)
+        // Rewind by 10% (60,000ms for a 10s track or typical 10m track)
+        mediaSessionConnection.rewind(60000L)
     }
 
     fun fastForward() {
-        _progress.value = (_progress.value + 0.1f).coerceAtMost(1f)
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        playbackJob?.cancel()
+        // Fast forward by 10% (60,000ms)
+        mediaSessionConnection.fastForward(60000L)
     }
 }

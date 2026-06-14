@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import com.airbnb.lottie.compose.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -61,7 +62,8 @@ fun BreathingScreen(
     var currentPhaseIndex by remember { mutableStateOf(0) }
     var secondsElapsedInPhase by remember { mutableStateOf(0) }
 
-    val currentPhase = currentSequence[currentPhaseIndex]
+    val safePhaseIndex = currentPhaseIndex.coerceIn(0, currentSequence.size - 1)
+    val currentPhase = currentSequence[safePhaseIndex]
     val secondsRemaining = currentPhase.durationSeconds - secondsElapsedInPhase
 
     // Sound alert or vibration trigger simulation state
@@ -78,7 +80,7 @@ fun BreathingScreen(
     LaunchedEffect(isRunning, currentPhaseIndex, secondsElapsedInPhase) {
         if (isRunning) {
             delay(1000)
-            val currentMaxDuration = currentSequence[currentPhaseIndex].durationSeconds
+            val currentMaxDuration = currentSequence[safePhaseIndex].durationSeconds
             if (secondsElapsedInPhase + 1 >= currentMaxDuration) {
                 // Advance to next phase
                 triggerPulseState = true
@@ -105,7 +107,7 @@ fun BreathingScreen(
     val targetScale = remember(currentPhase.phaseName, phaseProgress) {
         when (currentPhase.phaseName) {
             "Inhale" -> 0.4f + 0.6f * phaseProgress
-            "Hold" -> if (currentPhaseIndex == 1) 1.0f else 0.4f
+            "Hold" -> if (safePhaseIndex == 1) 1.0f else 0.4f
             "Exhale" -> 1.0f - 0.6f * phaseProgress
             else -> 0.4f // Hold Empty
         }
@@ -275,37 +277,69 @@ fun BreathingScreen(
                     )
                 }
 
-                // Breathing interactive central bubble circle
-                val bubbleColor = MaterialTheme.colorScheme.primary
-                val secondaryColor = MaterialTheme.colorScheme.secondary
+                // Breathing interactive central bubble circle/Lottie animation
+                val lottieComposeRes = com.example.R.raw.breathing
+                val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(lottieComposeRes))
                 
-                Canvas(
-                    modifier = Modifier
-                        .size(200.dp)
-                        .testTag("breathing_circle")
-                ) {
-                    // Circle size is dynamically driven by smoothly calculated animScale
-                    val drawRadius = (size.minDimension / 2) * animScale
-                    
-                    // Draw soft glowing translucent backdrop
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                bubbleColor.copy(alpha = 0.7f),
-                                secondaryColor.copy(alpha = 0.1f)
-                            ),
-                            center = Offset(size.width / 2, size.height / 2),
-                            radius = drawRadius * 1.1f
-                        ),
-                        radius = drawRadius * 1.1f
-                    )
-
-                    // Draw solid central interactive bubble
-                    drawCircle(
-                        color = bubbleColor,
-                        radius = drawRadius
-                    )
+                // Continuous smooth progression tracking synchronized with the timing phases
+                val smoothPhaseProgress = remember { Animatable(0f) }
+                LaunchedEffect(isRunning, currentPhaseIndex) {
+                    if (isRunning) {
+                        val durationMs = currentPhase.durationSeconds * 1000
+                        val elapsedMs = secondsElapsedInPhase * 1000
+                        val remainingMs = (durationMs - elapsedMs).coerceAtLeast(0)
+                        val startProgress = secondsElapsedInPhase.toFloat() / currentPhase.durationSeconds.toFloat()
+                        
+                        smoothPhaseProgress.snapTo(startProgress)
+                        smoothPhaseProgress.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(
+                                durationMillis = remainingMs,
+                                easing = LinearEasing
+                            )
+                        )
+                    } else {
+                        // When paused, we stay at the current fractional progress
+                        val pausedProgress = secondsElapsedInPhase.toFloat() / currentPhase.durationSeconds.toFloat()
+                        smoothPhaseProgress.snapTo(pausedProgress)
+                    }
                 }
+
+                val lottieAnimatedProgress by remember(currentPhase.phaseName, smoothPhaseProgress.value, isRunning) {
+                    derivedStateOf {
+                        if (!isRunning && secondsElapsedInPhase == 0 && currentPhaseIndex == 0) {
+                            0f
+                        } else {
+                            val frac = smoothPhaseProgress.value
+                            when (currentPhase.phaseName) {
+                                "Inhale" -> {
+                                    // Inhale phase: scale expands from 50% to 100%, which is progress 0.0 to 0.5
+                                    0.0f + 0.5f * frac
+                                }
+                                "Hold" -> {
+                                    // Hold phase: scale is holding at 100%, which is progress 0.5
+                                    0.5f
+                                }
+                                "Exhale" -> {
+                                    // Exhale phase: scale contracts from 100% to 50%, which is progress 0.5 to 1.0
+                                    0.5f + 0.5f * frac
+                                }
+                                else -> {
+                                    // Hold Empty (index 3 of Box Breathing) -> progress is 0.0 (scale is 50%)
+                                    0.0f
+                                }
+                            }
+                        }
+                    }
+                }
+
+                LottieAnimation(
+                    composition = composition,
+                    progress = { lottieAnimatedProgress },
+                    modifier = Modifier
+                        .size(240.dp)
+                        .testTag("breathing_circle")
+                )
 
                 // Timer numbers inside the circular dynamic visualizer
                 Column(

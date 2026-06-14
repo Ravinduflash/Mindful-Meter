@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.ProfileViewModel
 import com.example.ui.theme.*
+import com.airbnb.lottie.compose.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -82,7 +83,19 @@ fun ProfileChallengesScreen(
         )
     }
 
-    Scaffold(
+    val unlockedCount = remember(badges) { badges.count { it.isUnlocked } }
+    var previousUnlockedCount by remember { mutableStateOf<Int?>(null) }
+    var triggerConfetti by remember { mutableStateOf(false) }
+
+    LaunchedEffect(unlockedCount) {
+        if (previousUnlockedCount != null && unlockedCount > previousUnlockedCount!!) {
+            triggerConfetti = true
+        }
+        previousUnlockedCount = unlockedCount
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
         topBar = {
             TopAppBar(
                 title = {
@@ -316,18 +329,49 @@ fun ProfileChallengesScreen(
                 contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 items(badges) { badge ->
-                    BadgeGridItem(badge = badge)
+                    BadgeGridItem(
+                        badge = badge,
+                        onClick = {
+                            if (badge.isUnlocked) {
+                                triggerConfetti = true
+                            }
+                        }
+                    )
                 }
             }
+        }
+    }
+    }
+
+    if (triggerConfetti) {
+        val composition by rememberLottieComposition(LottieCompositionSpec.RawRes(com.example.R.raw.confetti))
+        val lottieState = animateLottieCompositionAsState(
+            composition = composition,
+            isPlaying = true,
+            iterations = 1,
+            restartOnPlay = true
+        )
+
+        LottieAnimation(
+            composition = composition,
+            progress = { lottieState.progress },
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag("confetti_overlay")
+        )
+
+        if (lottieState.progress >= 1.0f) {
+            triggerConfetti = false
         }
     }
 }
 
 @Composable
-fun BadgeGridItem(badge: BadgeData) {
+fun BadgeGridItem(badge: BadgeData, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(enabled = badge.isUnlocked) { onClick() }
             .testTag("badge_card_${badge.id}"),
         shape = RoundedCornerShape(24.dp),
         border = BorderStroke(1.dp, if (badge.isUnlocked) badge.unlockedColor.copy(alpha = 0.5f) else BentoCardBorder),
