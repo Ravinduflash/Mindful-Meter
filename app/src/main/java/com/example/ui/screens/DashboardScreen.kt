@@ -40,6 +40,8 @@ import com.example.ui.MoodViewModel
 import com.example.ui.SettingsViewModel
 import com.example.ui.DailyIntentionViewModel
 import com.example.ui.DailyHabitViewModel
+import com.example.ui.HydrationViewModel
+import com.example.ui.components.RainWaterBorderAnimation
 import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -50,6 +52,7 @@ fun DashboardScreen(
     viewModel: MoodViewModel,
     settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.Factory),
     dailyHabitViewModel: DailyHabitViewModel = viewModel(factory = DailyHabitViewModel.Factory),
+    hydrationViewModel: HydrationViewModel = viewModel(factory = HydrationViewModel.Factory),
     onNavigateToMood: () -> Unit,
     onNavigateToBreathing: () -> Unit,
     onNavigateToProfileChallenges: () -> Unit,
@@ -65,6 +68,18 @@ fun DashboardScreen(
 ) {
     val logs by viewModel.allLogs.collectAsStateWithLifecycle()
     val isRemindersEnabled by settingsViewModel.isRemindersEnabled.collectAsStateWithLifecycle()
+
+    val isWaterAnimActive by hydrationViewModel.isWaterAnimationActive.collectAsStateWithLifecycle()
+    val dashboardContext = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(Unit) {
+        val launcherActivity = dashboardContext as? android.app.Activity
+        val activeIntent = launcherActivity?.intent
+        if (activeIntent != null && activeIntent.getBooleanExtra("trigger_hydration_animation", false)) {
+            hydrationViewModel.setWaterAnimationActive(true)
+            activeIntent.removeExtra("trigger_hydration_animation")
+        }
+    }
 
     // Determine welcoming greeting based on hour of day
     val greeting = remember {
@@ -526,7 +541,7 @@ fun DashboardScreen(
                                 }
                             }
 
-                            // Custom Habit Input Row
+                             // Custom Habit Input Row
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -566,6 +581,276 @@ fun DashboardScreen(
                                 ) {
                                     Text("Add", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
                                 }
+                            }
+                        }
+                    }
+                }
+
+                // SECTION 1.7: Custom Hydration Tracker Card (Bento Layout)
+                item {
+                    val hydrationGoal by hydrationViewModel.hydrationGoalMl.collectAsStateWithLifecycle()
+                    val hydrationCurrent by hydrationViewModel.hydrationCurrentMl.collectAsStateWithLifecycle()
+                    val hydrationInterval by hydrationViewModel.hydrationIntervalMin.collectAsStateWithLifecycle()
+                    val hydrationNotifs by hydrationViewModel.hydrationNotifsEnabled.collectAsStateWithLifecycle()
+
+                    val hydrationPercent = if (hydrationGoal > 0) {
+                        (hydrationCurrent.toFloat() / hydrationGoal.toFloat()).coerceIn(0f, 1f)
+                    } else 0f
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dashboard_hydration_card"),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        border = BorderStroke(1.dp, BentoCardBorder)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            // Header Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFE3F2FD)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.LocalDrink,
+                                            contentDescription = null,
+                                            tint = Color(0xFF1E88E5),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = "Hydration Tracker",
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = BentoTextDark
+                                        )
+                                        Text(
+                                            text = "Maintain water intake for vibrant focus",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                            color = BentoTextMuted
+                                        )
+                                    }
+                                }
+
+                                // Interactive Notification Bell Toggle
+                                IconButton(
+                                    onClick = { hydrationViewModel.toggleNotifications(!hydrationNotifs) },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(if (hydrationNotifs) Color(0xFFE3F2FD) else Color(0xFFF5F5F5))
+                                ) {
+                                    Icon(
+                                        imageVector = if (hydrationNotifs) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
+                                        contentDescription = "Toggle Hydration Notifications",
+                                        tint = if (hydrationNotifs) Color(0xFF1E88E5) else Color.Gray,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            // Water Wave Progress visualizer
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(72.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color(0xFFF5F5F5)) // Light theme base
+                                    .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(16.dp))
+                            ) {
+                                // Background fluid animated bar
+                                val animatedFillWidth by animateFloatAsState(
+                                    targetValue = hydrationPercent,
+                                    animationSpec = tween(1000, easing = FastOutSlowInEasing),
+                                    label = "fluid_progress"
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(animatedFillWidth)
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                colors = listOf(Color(0xFF64B5F6), Color(0xFF2196F3))
+                                            )
+                                        )
+                                )
+
+                                // Text progress stats overlayed in center
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(
+                                            text = "$hydrationCurrent / $hydrationGoal ml",
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = if (hydrationPercent > 0.45f) Color.White else BentoTextDark
+                                        )
+                                        Text(
+                                            text = "Daily Intake Progress",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = if (hydrationPercent > 0.45f) Color.White.copy(alpha = 0.85f) else BentoTextMuted
+                                        )
+                                    }
+
+                                    Text(
+                                        text = "${(hydrationPercent * 100).toInt()}%",
+                                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                                        color = if (hydrationPercent > 0.45f) Color.White else Color(0xFF1E88E5)
+                                    )
+                                }
+                            }
+
+                            // Intake Quick Button log rows
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                // 250ml Cup
+                                Button(
+                                    onClick = { hydrationViewModel.logWater(250) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE3F2FD), contentColor = Color(0xFF1E88E5)),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(vertical = 12.dp)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("+250ml", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("Cup 🥛", fontSize = 10.sp)
+                                    }
+                                }
+
+                                // 500ml Bottle
+                                Button(
+                                    onClick = { hydrationViewModel.logWater(500) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFBBDEFB), contentColor = Color(0xFF1E88E5)),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(vertical = 12.dp)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("+500ml", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("Bottle 🧴", fontSize = 10.sp)
+                                    }
+                                }
+
+                                // 750ml Carafe
+                                Button(
+                                    onClick = { hydrationViewModel.logWater(750) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF90CAF9), contentColor = Color(0xFF0D47A1)),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(vertical = 12.dp)
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text("+750ml", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("Flask 🧪", fontSize = 10.sp)
+                                    }
+                                }
+
+                                // Clear/Reset Button
+                                IconButton(
+                                    onClick = { hydrationViewModel.resetWater() },
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFFFFF3E0)),
+                                    colors = IconButtonDefaults.iconButtonColors(contentColor = Color(0xFFE65100))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Reset Water Intake",
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+
+                            // Alarm Interval chips
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "Reminder Interval Timing",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = BentoTextDark
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    val intervals = listOf(
+                                        0 to "Off",
+                                        15 to "15m",
+                                        60 to "1h",
+                                        120 to "2h",
+                                        180 to "3h"
+                                    )
+
+                                    intervals.forEach { (mins, label) ->
+                                        val isSelected = hydrationInterval == mins
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(if (isSelected) Color(0xFF1E88E5) else Color(0xFFF5F5F5))
+                                                .border(1.dp, if (isSelected) Color(0xFF1E88E5) else Color(0xFFE0E0E0), RoundedCornerShape(10.dp))
+                                                .clickable { hydrationViewModel.updateInterval(mins) }
+                                                .padding(vertical = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = label,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isSelected) Color.White else Color.DarkGray
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Dynamic interactive simulator actions
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFFFFDE7))
+                                    .border(1.dp, Color(0xFFFFF59D), RoundedCornerShape(12.dp))
+                                    .clickable { hydrationViewModel.triggerSimulatedNotification() }
+                                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FlashOn,
+                                    contentDescription = "Simulate Hydration Action",
+                                    tint = Color(0xFFFBC02D),
+                                    modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                                )
+                                Text(
+                                    text = "Simulate Hydration Alert ⚡ (Test Border Animation)",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFF57F17)
+                                )
                             }
                         }
                     }
@@ -908,6 +1193,11 @@ fun DashboardScreen(
                 }
             }
         }
+        
+        RainWaterBorderAnimation(
+            isActive = isWaterAnimActive,
+            onDismiss = { hydrationViewModel.setWaterAnimationActive(false) }
+        )
     }
 }
 

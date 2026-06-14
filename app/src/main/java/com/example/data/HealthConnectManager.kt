@@ -1,18 +1,8 @@
 package com.example.data
 
 import android.content.Context
-import android.health.connect.ReadRecordsRequestUsingFilters
-import android.health.connect.datatypes.SleepSessionRecord
-import android.health.connect.TimeInstantRangeFilter
-import android.health.connect.HealthConnectException
 import android.os.Build
-import android.os.OutcomeReceiver
 import android.util.Log
-import java.time.Instant
-import java.time.temporal.ChronoUnit
-import java.util.concurrent.Executors
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 
 class HealthConnectManager(private val context: Context) {
 
@@ -65,47 +55,13 @@ class HealthConnectManager(private val context: Context) {
         }
 
         return try {
-            val hcm = context.getSystemService("healthconnect") as? android.health.connect.HealthConnectManager
-                ?: return getFallbackSleepData()
-
-            val endTime = Instant.now()
-            val startTime = endTime.minus(7, ChronoUnit.DAYS)
-
-            val timeInstantRangeFilter = TimeInstantRangeFilter.Builder()
-                .setStartTime(startTime)
-                .setEndTime(endTime)
-                .build()
-
-            val request = ReadRecordsRequestUsingFilters.Builder(SleepSessionRecord::class.java)
-                .setTimeRangeFilter(timeInstantRangeFilter)
-                .build()
-
-            val executor = Executors.newSingleThreadExecutor()
-
-            suspendCancellableCoroutine { continuation ->
-                val outcomeReceiver = object : OutcomeReceiver<android.health.connect.ReadRecordsResponse<SleepSessionRecord>, HealthConnectException> {
-                    override fun onResult(result: android.health.connect.ReadRecordsResponse<SleepSessionRecord>) {
-                        val records = result.records
-                        val list = records.map { record ->
-                            val durationMinutes = java.time.Duration.between(record.startTime, record.endTime).toMinutes().toInt()
-                            SleepRecordDto(
-                                timestamp = record.startTime.toEpochMilli(),
-                                durationMinutes = durationMinutes,
-                                notes = record.notes?.toString() ?: "Sleep Session"
-                            )
-                        }
-                        continuation.resume(list)
-                    }
-
-                    override fun onError(error: HealthConnectException) {
-                        Log.e("HealthConnectManager", "Error querying sleep records", error)
-                        continuation.resume(getFallbackSleepData())
-                    }
-                }
-                
-                hcm.readRecords(request, executor, outcomeReceiver)
+            val data = HealthConnectApiHelper.fetchSleepData(context)
+            if (data.isEmpty()) {
+                getFallbackSleepData()
+            } else {
+                data
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.e("HealthConnectManager", "Exception in fetchSleepDataPast7Days", e)
             getFallbackSleepData()
         }
@@ -124,6 +80,70 @@ class HealthConnectManager(private val context: Context) {
             SleepRecordDto(now - 1 * oneDayMs, 490, "Restful night"),
             SleepRecordDto(now, 480, "Last Night's Sleep")
         )
+    }
+}
+
+/**
+ * Isolated Helper object containing API 34 specific references.
+ * This helper is only loaded on JVM if runtime execution reaches it on API >= 34.
+ */
+@androidx.annotation.RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+private object HealthConnectApiHelper {
+    suspend fun fetchSleepData(context: Context): List<SleepRecordDto> {
+        return try {
+            val hcm = context.getSystemService("healthconnect") as? android.health.connect.HealthConnectManager
+                ?: return emptyList()
+
+            val endTime = java.time.Instant.now()
+            val startTime = endTime.minus(7, java.time.temporal.ChronoUnit.DAYS)
+
+            val timeInstantRangeFilter = android.health.connect.TimeInstantRangeFilter.Builder()
+                .setStartTime(startTime)
+                .setEndTime(endTime)
+                .build()
+
+            val request = android.health.connect.ReadRecordsRequestUsingFilters.Builder(
+                android.health.connect.datatypes.SleepSessionRecord::class.java
+            )
+                .setTimeRangeFilter(timeInstantRangeFilter)
+                .build()
+
+            val executor = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+            kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
+                val outcomeReceiver = object : android.os.OutcomeReceiver<
+                    android.health.connect.ReadRecordsResponse<android.health.connect.datatypes.SleepSessionRecord>,
+                    android.health.connect.HealthConnectException
+                > {
+                    override fun onResult(result: android.health.connect.ReadRecordsResponse<android.health.connect.datatypes.SleepSessionRecord>) {
+                        val records = result.records
+                        val list = records.map { record ->
+                            val durationMinutes = java.time.Duration.between(record.startTime, record.endTime).toMinutes().toInt()
+                            SleepRecordDto(
+                                timestamp = record.startTime.toEpochMilli(),
+                                durationMinutes = durationMinutes,
+                                notes = record.notes?.toString() ?: "Sleep Session"
+                            )
+                        }
+                        if (continuation.isActive) {
+                            continuation.resume(list, null)
+                        }
+                    }
+
+                    override fun onError(error: android.health.connect.HealthConnectException) {
+                        Log.e("HealthConnectApiHelper", "Error querying sleep records", error)
+                        if (continuation.isActive) {
+                            continuation.resume(emptyList(), null)
+                        }
+                    }
+                }
+                
+                hcm.readRecords(request, executor, outcomeReceiver)
+            }
+        } catch (e: Throwable) {
+            Log.e("HealthConnectApiHelper", "Error in HealthConnectApiHelper fetchSleepData", e)
+            emptyList()
+        }
     }
 }
 

@@ -31,6 +31,11 @@
             android:exported="false" />
 
         <receiver
+            android:name=".receiver.HydrationReceiver"
+            android:enabled="true"
+            android:exported="false" />
+
+        <receiver
             android:name="com.example.widget.MindfulWidgetReceiver"
             android:exported="true"
             android:label="Mindful Meter Widget">
