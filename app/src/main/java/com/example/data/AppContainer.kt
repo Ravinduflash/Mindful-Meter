@@ -3,38 +3,25 @@ package com.example.data
 import android.content.Context
 
 interface AppContainer {
-    val moodRepository: MoodRepository
-    val preferencesRepository: PreferencesRepository
-    val libraryRepository: LibraryRepository
-    val communityRepository: CommunityRepository
-    val coachingRepository: CoachingRepository
-    val dailyIntentionRepository: DailyIntentionRepository
+    val dailyHabitRepository: DailyHabitRepository
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
-    override val moodRepository: MoodRepository by lazy {
-        val database = AppDatabase.getDatabase(context)
-        OfflineMoodRepository(database.moodDao(), database.journalDao())
+    override val dailyHabitRepository: DailyHabitRepository by lazy {
+        OfflineDailyHabitRepository(AppDatabase.getDatabase(context).dailyHabitDao())
     }
+}
 
-    override val preferencesRepository: PreferencesRepository by lazy {
-        PreferencesRepository(context.dataStore)
-    }
+interface DailyHabitRepository {
+    fun getHabitsForDate(dateStr: String): kotlinx.coroutines.flow.Flow<List<DailyHabit>>
+    suspend fun insertHabit(habit: DailyHabit)
+    suspend fun updateHabit(habit: DailyHabit)
+    suspend fun deleteHabit(id: Int)
+}
 
-    override val libraryRepository: LibraryRepository by lazy {
-        OfflineLibraryRepository()
-    }
-
-    override val communityRepository: CommunityRepository by lazy {
-        OfflineCommunityRepository()
-    }
-
-    override val coachingRepository: CoachingRepository by lazy {
-        OfflineCoachingRepository()
-    }
-
-    override val dailyIntentionRepository: DailyIntentionRepository by lazy {
-        val database = AppDatabase.getDatabase(context)
-        OfflineDailyIntentionRepository(database.dailyIntentionDao())
-    }
+class OfflineDailyHabitRepository(private val dailyHabitDao: DailyHabitDao) : DailyHabitRepository {
+    override fun getHabitsForDate(dateStr: String) = dailyHabitDao.getHabitsForDate(dateStr)
+    override suspend fun insertHabit(habit: DailyHabit) = dailyHabitDao.insertHabit(habit)
+    override suspend fun updateHabit(habit: DailyHabit) = dailyHabitDao.updateHabit(habit)
+    override suspend fun deleteHabit(id: Int) = dailyHabitDao.deleteHabitById(id)
 }

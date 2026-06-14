@@ -1,6 +1,0 @@
-{
-  "name": "Mindful Meter",
-  "description": "A modern wellbeing and mood tracking application with breathing exercises and mindful reminders.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
